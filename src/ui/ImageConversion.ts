@@ -13,12 +13,34 @@ interface ConversionResult {
 }
 
 export class ImageConversion {
+  private _qualityPercentage?: string
+
   constructor(
     readonly figmaImageData: FigmaImageData,
-    public name: string = figmaImageData.name,
+    public name: string|null = figmaImageData.name,
     public format: ImageFormat = ImageFormat.webp,
-    public quality: number = 1.0
-  ) {}
+    private _quality: number = 1.0
+  ) {
+    this._qualityPercentage = Math.round(_quality * 100).toString()
+  }
+
+  get quality(): number {
+    return this._quality
+  }
+
+  get qualityPercentage(): string|null {
+    return this._qualityPercentage
+  }
+
+  set qualityPercentage(value: string|null) {
+    this._qualityPercentage= value
+    if (value !== null) {
+      const quality = parseInt(value, 10)
+      if (!isNaN(quality) && quality >= 0 && quality <= 100) {
+        this._quality = quality / 100.0
+      }
+    }
+  }
 
   get dataUri(): string {
     const format = ImageFormat.formatByName(this.figmaImageData.formatName)
@@ -26,10 +48,13 @@ export class ImageConversion {
     return `data:${format.mimeType};base64,${base64Data}`
   }
 
-  convert(densities: Set<Density>): Promise<ConversionResult> {
+  convertAll(densities: Set<Density>): Promise<ConversionResult> {
     const promises: Promise<DensityBlob>[] = []
     densities.forEach(density => {
-      promises.push(this.convertWithDensity(density))
+      promises.push(this.convert(density)
+        .then(blob => {
+          return { density, blob }
+        }))
     })
     return Promise.all(promises)
       .then(densityBlobs => {
@@ -37,7 +62,7 @@ export class ImageConversion {
       })
   }
 
-  private convertWithDensity(density: Density): Promise<DensityBlob> {
+  convert(density: Density): Promise<Blob> {
     return new Promise(resolve => {
       const image = new Image()
       image.onload = () => {
@@ -50,7 +75,7 @@ export class ImageConversion {
         ctx.drawImage(image, 0, 0)
 
         canvas.toBlob(blob => {
-          resolve({ density, blob })
+          resolve(blob)
         }, this.format.mimeType, this.quality)
       }
       image.src = this.dataUri

@@ -17,19 +17,23 @@ export class ImagePreview extends React.Component<Props, {}> {
     const image = new Image()
     image.onload = () => {
       const canvas = this.canvasRef
-      const scale = Math.min(canvas.width / image.width, canvas.height / image.height)
 
-      const width = canvas.width / scale
-      const height = canvas.height / scale
-      const x = (width - image.width) / 2.0
-      const y = (height - image.height) / 2.0
+      const imageWidth = image.width
+      const imageHeight = image.height
+      const gridPixel = 10
+
+      const scale = Math.min(canvas.width / imageWidth, canvas.height / imageHeight)
+
+      const canvasWidth = canvas.width / scale
+      const canvasHeight = canvas.height / scale
+      const x = (canvasWidth - imageWidth) / 2.0
+      const y = (canvasHeight - imageHeight) / 2.0
 
       const ctx = canvas.getContext('2d')
       ctx.scale(scale, scale)
 
-      const gridPixel = 10
-      for (let i = 0; i < image.width / gridPixel; i++) {
-        for (let j = 0; j < image.height / gridPixel; j++) {
+      for (let i = 0; i < imageWidth / gridPixel; i++) {
+        for (let j = 0; j < imageHeight / gridPixel; j++) {
           if ((i + j) % 2 === 0) {
             ctx.fillStyle = 'black'
           } else {
@@ -38,13 +42,13 @@ export class ImagePreview extends React.Component<Props, {}> {
           ctx.fillRect(
             x + i * gridPixel,
             y + j * gridPixel,
-            Math.min(gridPixel, image.width - i * gridPixel),
-            Math.min(gridPixel, image.height - j * gridPixel)
+            Math.min(gridPixel, imageWidth - i * gridPixel),
+            Math.min(gridPixel, imageHeight - j * gridPixel)
           )
         }
       }
 
-      ctx.drawImage(image, x, y)
+      ctx.drawImage(image, x, y, imageWidth, imageHeight)
     }
     image.src = this.props.src
   }

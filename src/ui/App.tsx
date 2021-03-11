@@ -1,20 +1,19 @@
 import * as React from 'react'
-import * as M from 'materialize-css'
-import { Density } from '../common/Density'
-import { ImageFormat } from '../common/ImageFormat'
-import { FigmaImageData } from '../common/FigmaImageData'
 import * as Message from '../common/Message'
+import { Density } from '../common/Density'
+import { DensityField } from './DensityField'
 import { ImageConversion } from './ImageConversion'
-import { ImagePreview } from './ImagePreview'
+import { ImageConversionItem } from './ImageConversionItem'
 import * as JSZip from 'jszip'
 
 interface State {
   densities: Set<Density>
   directoryFormat?: string
-  imageConversions?: ImageConversion[]
+  conversions?: ImageConversion[]
 }
 
 export default class App extends React.Component<{}, State> {
+  static readonly directoryFormatPattern = '[a-zA-Z0-9-]+\\{\\}[a-zA-Z0-9-]*'
   static readonly defaultDirectoryFormat = 'drawable-{}'
 
   constructor(props) {
@@ -26,8 +25,8 @@ export default class App extends React.Component<{}, State> {
     }
 
     Message.addFigmaImageDataLoadedHandler(imageData => {
-      const imageConversions = imageData.map(data => new ImageConversion(data))
-      this.setState({ imageConversions })
+      const conversions = imageData.map(data => new ImageConversion(data))
+      this.setState({ conversions })
     })
   }
 
@@ -35,13 +34,29 @@ export default class App extends React.Component<{}, State> {
     Message.postFigmaImageDataRequested()
   }
 
-  onDensityChange(density: Density): void {
-    const densities = this.state.densities
-    if (densities.has(density)) {
-      densities.delete(density)
-    } else {
-      densities.add(density)
+  get canExport(): boolean {
+    if (this.state.densities.size === 0) {
+      return false
     }
+
+    const directoryFormat = this.state.directoryFormat
+    if (directoryFormat !== null) {
+      const pattern = new RegExp(App.directoryFormatPattern)
+      const result = directoryFormat.match(pattern)
+      if (result === null || result[0] !== directoryFormat) {
+        return false
+      }
+    }
+
+    const conversions = this.state.conversions
+    if (conversions === null) {
+      return false
+    }
+
+    return true
+  }
+
+  onDensitiesChange(densities: Set<Density>): void {
     this.setState({ densities })
   }
 
@@ -50,32 +65,15 @@ export default class App extends React.Component<{}, State> {
     this.setState({ directoryFormat })
   }
 
-  onImageNameChange(i: number, name?: string): void {
-    const imageConversions = this.state.imageConversions
-    imageConversions[i].name = name
-    this.setState({ imageConversions })
-  }
-
-  onImageFormatChange(i: number, formatName: string): void {
-    const imageConversions = this.state.imageConversions
-    imageConversions[i].format = ImageFormat.formatByName(formatName)
-    this.setState({ imageConversions })
-  }
-
-  onImageQualityChange(i: number, quality?: string): void {
-    if (quality != null) {
-      const percentage = parseInt(quality, 10)
-      if (!isNaN(percentage) && percentage >= 0 && percentage <= 100) {
-        const imageConversions = this.state.imageConversions
-        imageConversions[i].quality = percentage / 100.0
-        this.setState({ imageConversions })
-      }
-    }
+  onConversionChange(i: number, conversion: ImageConversion): void {
+    const conversions = this.state.conversions
+    conversions[i] = conversion
+    this.setState({ conversions })
   }
 
   onExport(): void {
-    const convertPromises = this.state.imageConversions
-      .map(conversion => conversion.convert(this.state.densities))
+    const convertPromises = this.state.conversions
+      .map(conversion => conversion.convertAll(this.state.densities))
 
     Promise.all(convertPromises)
       .then(conversionResults => {
@@ -103,36 +101,20 @@ export default class App extends React.Component<{}, State> {
       })
   }
 
-  onSelectRef(ref: HTMLSelectElement): void {
-    M.FormSelect.init(ref)
-  }
-
   render() {
     return (
       <div className="e4a-plugin row">
 
-        <div className="input-field col s12">
-          <label className="active">Densities</label>
-
-          {Density.densities.map(density =>
-            <p key={`density-${density.name}`}>
-              <label>
-                <input
-                  className="filled-in"
-                  type="checkbox"
-                  checked={this.state.densities.has(density)}
-                  onChange={() => this.onDensityChange(density)}
-                  />
-                <span>{density.name} (x{density.scale})</span>
-              </label>
-            </p>
-          )}
-        </div>
+        <DensityField
+          className="input-field col s12"
+          densities={this.state.densities}
+          onChange={densities => this.onDensitiesChange(densities)}
+          />
 
         <div className="input-field col s12">
           <input
             className="validate"
-            pattern="[a-zA-Z0-9-]+\{\}[a-zA-Z0-9-]*"
+            pattern={App.directoryFormatPattern}
             type="text"
             id="directory-name"
             placeholder={App.defaultDirectoryFormat}
@@ -146,51 +128,17 @@ export default class App extends React.Component<{}, State> {
           </span>
         </div>
 
-        {this.state.imageConversions && (
+        {this.state.conversions && (
           <div className="input-field col s12">
             <ul className="collection e4a-image-conversion">
-              {this.state.imageConversions.map((imageConversion, i) =>
-                <li key={`vector-image-${i}`} className="collection-item row">
-                  <div className="input-field col s4">
-                    <input
-                      className="validate"
-                      pattern="[a-zA-Z0-9_]+"
-                      type="text"
-                      id={`image-name-${i}`}
-                      value={imageConversion.name || ''}
-                      onChange={event => this.onImageNameChange(i, event.target.value || null)}
-                      />
-                    <label className="active" htmlFor={`image-name-${i}`}>Name</label>
-                  </div>
-                  <div className="col s3 valign-wrapper e4a-image-source">
-                    <ImagePreview src={imageConversion.dataUri} width={96} height={96} />
-                  </div>
-                  <div className="input-field col s3">
-                    <select
-                      ref={ref => this.onSelectRef(ref)}
-                      id={`image-format-${i}`}
-                      value={imageConversion.format.name}
-                      onChange={event => this.onImageFormatChange(i, event.target.value)}>
-                      {ImageFormat.bitmaps.map(format => (
-                        <option
-                          key={`image-format-${i}-${format.ext}`}
-                          value={format.name}>{format.name}</option>
-                      ))}
-                    </select>
-                    <label >Format</label>
-                  </div>
-                  <div className={`input-field col s2 ${imageConversion.format.hasQuality ? '' : 'hide'}`}>
-                    <input
-                      className="validate"
-                      pattern="[a-zA-Z0-9_]+"
-                      type="text"
-                      id={`image-quality-${i}`}
-                      value={Math.round(imageConversion.quality * 100) || ''}
-                      onChange={event => this.onImageQualityChange(i, event.target.value || null)}
-                      />
-                    <label className="active" htmlFor={`image-quality-${i}`}>Quality</label>
-                  </div>
-                </li>
+              {this.state.conversions.map((conversion, i) =>
+                <ImageConversionItem
+                  key={`image-conversion-item-${i}`}
+                  uniquifier={i}
+                  conversion={conversion}
+                  className="collection-item row"
+                  onChange={(conversion: ImageConversion) => this.onConversionChange(i, conversion)}
+                  />
               )}
             </ul>
           </div>
@@ -207,6 +155,7 @@ export default class App extends React.Component<{}, State> {
             className="btn waves-effect waves-light"
             type="submit"
             name="action"
+            disabled={!this.canExport}
             onClick={() => this.onExport()}>
             Export
           </button>
