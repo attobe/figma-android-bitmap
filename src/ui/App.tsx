@@ -1,6 +1,7 @@
 import * as React from 'react'
 import * as M from 'materialize-css'
 import { Density } from '../common/Density'
+import { ImageFormat } from '../common/ImageFormat'
 import { FigmaImageData } from '../common/FigmaImageData'
 import * as Message from '../common/Message'
 import { ImageConversion } from './ImageConversion'
@@ -41,12 +42,35 @@ export default class App extends React.Component<{}, State> {
     } else {
       densities.add(density)
     }
-    this.setState({ densities: densities })
+    this.setState({ densities })
   }
 
   onDirectoryFormatChange(textField: HTMLInputElement): void {
     const directoryFormat = textField.value || null
-    this.setState({ directoryFormat: directoryFormat })
+    this.setState({ directoryFormat })
+  }
+
+  onImageNameChange(i: number, name?: string): void {
+    const imageConversions = this.state.imageConversions
+    imageConversions[i].name = name
+    this.setState({ imageConversions })
+  }
+
+  onImageFormatChange(i: number, formatName: string): void {
+    const imageConversions = this.state.imageConversions
+    imageConversions[i].format = ImageFormat.formatByName(formatName)
+    this.setState({ imageConversions })
+  }
+
+  onImageQualityChange(i: number, quality?: string): void {
+    if (quality != null) {
+      const percentage = parseInt(quality, 10)
+      if (!isNaN(percentage) && percentage >= 0 && percentage <= 100) {
+        const imageConversions = this.state.imageConversions
+        imageConversions[i].quality = percentage / 100.0
+        this.setState({ imageConversions })
+      }
+    }
   }
 
   onExport(): void {
@@ -127,19 +151,45 @@ export default class App extends React.Component<{}, State> {
             <ul className="collection e4a-image-conversion">
               {this.state.imageConversions.map((imageConversion, i) =>
                 <li key={`vector-image-${i}`} className="collection-item row">
-                  <div className="col s4 valign-wrapper e4a-image-source">
+                  <div className="input-field col s4">
+                    <input
+                      className="validate"
+                      pattern="[a-zA-Z0-9_]+"
+                      type="text"
+                      id={`image-name-${i}`}
+                      value={imageConversion.name || ''}
+                      onChange={event => this.onImageNameChange(i, event.target.value || null)}
+                      />
+                    <label className="active" htmlFor={`image-name-${i}`}>Name</label>
+                  </div>
+                  <div className="col s3 valign-wrapper e4a-image-source">
                     <ImagePreview src={imageConversion.dataUri} width={96} height={96} />
                   </div>
-                  {/*
-                  <div className="col s4">
-                    <select ref={ref => this.onSelectRef(ref)} value="image/webp">
-                      <option value="image/webp">WEBP</option>
-                      <option value="image/png">PNG</option>
-                      <option value="image/jpeg">JPEG</option>
+                  <div className="input-field col s3">
+                    <select
+                      ref={ref => this.onSelectRef(ref)}
+                      id={`image-format-${i}`}
+                      value={imageConversion.format.name}
+                      onChange={event => this.onImageFormatChange(i, event.target.value)}>
+                      {ImageFormat.bitmaps.map(format => (
+                        <option
+                          key={`image-format-${i}-${format.ext}`}
+                          value={format.name}>{format.name}</option>
+                      ))}
                     </select>
+                    <label >Format</label>
                   </div>
-                  <div className="col s4">Alvin</div>
-                  */}
+                  <div className={`input-field col s2 ${imageConversion.format.hasQuality ? '' : 'hide'}`}>
+                    <input
+                      className="validate"
+                      pattern="[a-zA-Z0-9_]+"
+                      type="text"
+                      id={`image-quality-${i}`}
+                      value={Math.round(imageConversion.quality * 100) || ''}
+                      onChange={event => this.onImageQualityChange(i, event.target.value || null)}
+                      />
+                    <label className="active" htmlFor={`image-quality-${i}`}>Quality</label>
+                  </div>
                 </li>
               )}
             </ul>
