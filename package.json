@@ -1,7 +1,7 @@
 {
-  "name": "export-for-android",
+  "name": "android-bitmap",
   "version": "1.0.0",
-  "description": "Your Figma plugin",
+  "description": "Export Plugin for Android Bitmap Resources",
   "main": "code.js",
   "scripts": {
     "build": "tsc -p tsconfig.json"
