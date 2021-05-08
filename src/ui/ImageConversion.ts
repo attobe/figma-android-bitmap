@@ -13,6 +13,8 @@ interface ConversionResult {
 }
 
 export class ImageConversion {
+  static readonly namePattern = /^[a-zA-Z0-9_]+$/
+
   private _qualityPercentage?: string
 
   constructor(
@@ -34,18 +36,51 @@ export class ImageConversion {
 
   set qualityPercentage(value: string|null) {
     this._qualityPercentage= value
-    if (value !== null) {
-      const quality = parseInt(value, 10)
-      if (!isNaN(quality) && quality >= 0 && quality <= 100) {
-        this._quality = quality / 100.0
-      }
+
+    const percentage = this.parseQualityPercentage()
+    if (percentage !== null) {
+      this._quality = percentage / 100.0
     }
   }
 
   get dataUri(): string {
     const format = ImageFormat.formatByName(this.figmaImageData.formatName)
-    const base64Data = btoa(String.fromCharCode.apply(null, this.figmaImageData.data))
-    return `data:${format.mimeType};base64,${base64Data}`
+    const data = this.figmaImageData.data.reduce((acc, i) => {
+      acc += String.fromCharCode.apply(null, [i])
+      return acc
+    }, '')
+    return `data:${format.mimeType};base64,${btoa(data)}`
+  }
+
+  get canExport(): boolean {
+    const name = this.name
+    if (name === null) {
+      return false
+    }
+
+    if (!ImageConversion.namePattern.test(name)) {
+      return false
+    }
+
+    if (this.format.hasQuality && this.parseQualityPercentage() === null) {
+      return false
+    }
+
+    return true
+  }
+
+  private parseQualityPercentage(): number|null {
+    const value = this._qualityPercentage
+    if (value === null) {
+      return null
+    }
+
+    const percentage = parseInt(value, 10)
+    if (percentage.toString() === value && percentage >= 0 && percentage <= 100) {
+      return percentage
+    } else {
+      return null
+    }
   }
 
   convertAll(densities: Set<Density>): Promise<ConversionResult> {

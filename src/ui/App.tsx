@@ -8,12 +8,12 @@ import * as JSZip from 'jszip'
 
 interface State {
   densities: Set<Density>
-  directoryFormat?: string
-  conversions?: ImageConversion[]
+  directoryFormat: string
+  conversions: ImageConversion[]
 }
 
 export default class App extends React.Component<{}, State> {
-  static readonly directoryFormatPattern = '[a-zA-Z0-9-]+\\{\\}[a-zA-Z0-9-]*'
+  static readonly directoryFormatPattern = /^[a-zA-Z0-9-]+\{\}[a-zA-Z0-9-]*$/
   static readonly defaultDirectoryFormat = 'drawable-{}'
 
   constructor(props) {
@@ -21,7 +21,8 @@ export default class App extends React.Component<{}, State> {
 
     this.state = {
       densities: new Set(Density.densities.filter(density => density.isFamous)),
-      directoryFormat: null
+      directoryFormat: null,
+      conversions: null
     }
 
     Message.addFigmaImageDataLoadedHandler(imageData => {
@@ -41,15 +42,17 @@ export default class App extends React.Component<{}, State> {
 
     const directoryFormat = this.state.directoryFormat
     if (directoryFormat !== null) {
-      const pattern = new RegExp(App.directoryFormatPattern)
-      const result = directoryFormat.match(pattern)
-      if (result === null || result[0] !== directoryFormat) {
+      if (!App.directoryFormatPattern.test(directoryFormat)) {
         return false
       }
     }
 
     const conversions = this.state.conversions
     if (conversions === null) {
+      return false
+    }
+
+    if (conversions.some(conversion => !conversion.canExport)) {
       return false
     }
 
@@ -114,7 +117,7 @@ export default class App extends React.Component<{}, State> {
         <div className="input-field col s12">
           <input
             className="validate"
-            pattern={App.directoryFormatPattern}
+            pattern={App.directoryFormatPattern.source}
             type="text"
             id="directory-name"
             placeholder={App.defaultDirectoryFormat}

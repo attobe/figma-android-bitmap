@@ -35,9 +35,9 @@ export class ImagePreview extends React.Component<Props, {}> {
       for (let i = 0; i < imageWidth / gridPixel; i++) {
         for (let j = 0; j < imageHeight / gridPixel; j++) {
           if ((i + j) % 2 === 0) {
-            ctx.fillStyle = 'black'
+            ctx.fillStyle = 'lightgray'
           } else {
-            ctx.fillStyle = 'gray'
+            ctx.fillStyle = 'whitesmoke'
           }
           ctx.fillRect(
             x + i * gridPixel,

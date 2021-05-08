@@ -12,8 +12,13 @@ if (selections.length == 0) {
   Message.addFigmaImageDataRequestedHandler(() => {
     const format = ImageFormat.svg
     const exportData = selections.map(selection => {
-      return selection
-        .exportAsync({ format: 'SVG' })
+      // wrap figma exportAsync for error handling
+      const exportAsync = new Promise<Uint8Array>((resolve, reject) =>
+        selection.exportAsync({ format: 'SVG' })
+          .then(image => resolve(image), error => reject(error))
+      )
+
+      return exportAsync
         .then((image): FigmaImageData => {
           return {
             name: selection.name,
